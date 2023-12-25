@@ -10,23 +10,27 @@
 
 /* configure the CPU type */
 OUTPUT_ARCH( "riscv" )
-
+/* link with the standard c library */
+/* INPUT(-lc) */
+/* link with the standard GCC library */
+/* INPUT(-lgcc) */
 /* configure the entry point */
 ENTRY(__start)
 
-StackSize    = 0x0400; /*  1KB */
-HeapMinSize  = 0x1000; /*  4KB */
+StackSize    = 0x800000; /*  8M */
+HeapMinSize  = 0x600000; /*  6M */
 
 MEMORY
 {
     fw_header_memory  (rx)  : ORIGIN = 0x58000000 - 0x1000, LENGTH = 4K
     xip_memory  (rx)  : ORIGIN = 0x58000000, LENGTH = 32M
-    itcm_memory (rx)  : ORIGIN = 0x3eff0000, LENGTH = 28K
-    dtcm_memory (rx)  : ORIGIN = 0x3eff7000, LENGTH = 4K
+    itcm_memory (rx)  : ORIGIN = 0x50200000, LENGTH = 2M
+    dtcm_memory (rx)  : ORIGIN = 0x50400000, LENGTH = 12M
     nocache_ram_memory (!rx) : ORIGIN = 0x3eff8000, LENGTH = 0K
-    ram_memory  (!rx) : ORIGIN = 0x3eff8000, LENGTH = 32K + 32K
+    ram_memory  (!rx) : ORIGIN = 0x52000000, LENGTH = 32M
     xram_memory (!rx) : ORIGIN = 0x40004000, LENGTH = 16K
 }
+
 
 SECTIONS
 {
@@ -45,6 +49,7 @@ SECTIONS
     {
         . = ALIGN(4);
         __text_code_start__ = .;
+		__executable_start = .;
 
         *(.text)
         *(.text.*)
@@ -81,7 +86,13 @@ SECTIONS
 
         . = ALIGN(4);
         __text_code_end__ = .;
+		__etext = .;
     } > xip_memory
+
+    . = ALIGN(8);
+	PROVIDE(__eh_frame = .);
+/* before .eh_frame rule */
+	.eh_frame : { KEEP (*(.eh_frame)) *(.eh_frame.*) } >xip_memory
 
     . = ALIGN(4);
     __itcm_load_addr = .;
@@ -227,19 +238,23 @@ SECTIONS
 
     .heap (NOLOAD):
     {
-        . = ALIGN(4);
+        . = ALIGN(8);
         __HeapBase = .;
 
         /*__end__ = .;*/
         /*end = __end__;*/
         KEEP(*(.heap*))
 
-        . = ALIGN(4);
+        . = ALIGN(8);
         __HeapLimit = .;
     } > ram_memory
 
     __HeapLimit = ORIGIN(ram_memory) + LENGTH(ram_memory);
     ASSERT(__HeapLimit - __HeapBase >= HeapMinSize, "heap region overflow")
 
+	__wa2x_memory_start = 0x51000000;
+	__wa2x_memory_end = 0x51800000;
+	__elfloader_memory_start = 0x51800000;
+	__elfloader_memory_end = 0x52000000;
 }
 
